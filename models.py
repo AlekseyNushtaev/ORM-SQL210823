@@ -1,4 +1,5 @@
 import sqlalchemy as sq
+import json
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -48,5 +49,33 @@ class Sale(Base):
     stock = relationship(Stock, backref='sale')
 
 def create_tables(engine):
+
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
+
+def json_to_db(json_path, session):
+
+    with open(json_path, 'r') as fd:
+        data = json.load(fd)
+
+    for record in data:
+        model = {
+            'publisher': Publisher,
+            'shop': Shop,
+            'book': Book,
+            'stock': Stock,
+            'sale': Sale,
+        }[record.get('model')]
+        session.add(model(id=record.get('pk'), **record.get('fields')))
+
+def get_shops(pub, session):
+
+    q = session.query(Book.title, Shop.name, Sale.price, Sale.date_sale).select_from(Shop).join(Stock).join(Book).join(
+        Publisher).join(Sale)
+    if pub.isdigit():
+        res = q.filter(Publisher.id == int(pub)).all()
+    else:
+        res = q.filter(Publisher.name == pub).all()
+    for book, shop, price, date in res:
+        print(f"{book: <40} | {shop: <10} | {price: <8} | {date.strftime('%d-%m-%Y')}")
+
